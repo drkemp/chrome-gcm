@@ -63,6 +63,7 @@ exports.register = function(senderid, callback) {
       result['registrationId'] = regid;
       checkToIssueCallback();
     }
+  });
 }
 
 
