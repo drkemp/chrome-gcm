@@ -10,9 +10,10 @@ import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
+import org.json.JSONObject;
 
 public class GcmIntentService extends IntentService {
-
+    String LOG_TAG ="GcmIntentService";
     public GcmIntentService() {
         super("GcmIntentService");
     }
@@ -34,11 +35,11 @@ public class GcmIntentService extends IntentService {
         String messageType = gcm.getMessageType(intent);
 
         if (GoogleCloudMessaging.MESSAGE_TYPE_SEND_ERROR.equals(messageType)) {
-            ChromeGcm.handleSendError( payload);
+            ChromeGcm.handleSendError( payloadString);
         } else if (GoogleCloudMessaging.MESSAGE_TYPE_DELETED.equals(messageType)) {
-            ChromeGcm.handleDeletedMessages( payload);
+            ChromeGcm.handleDeletedMessages( payloadString);
         } else if (GoogleCloudMessaging.MESSAGE_TYPE_MESSAGE.equals(messageType)) {
-            ChromeGcm.handleRxMessage( payload);
+            ChromeGcm.handleRxMessage( payloadString);
         }
         GcmReceiver.completeWakefulIntent(intent);
     }

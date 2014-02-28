@@ -16,6 +16,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Bundle;
 import android.util.Log;
 
 import com.google.android.gms.gcm.GoogleCloudMessaging;
@@ -38,6 +39,7 @@ public class ChromeGcm extends CordovaPlugin {
 
     AtomicInteger msgId = new AtomicInteger();
     GoogleCloudMessaging gcm;
+    private static Context context;
     
     @Override
     public void initialize(final CordovaInterface cordova, CordovaWebView webView) {
@@ -48,6 +50,7 @@ public class ChromeGcm extends CordovaPlugin {
         if (cordova.getActivity().getIntent().hasExtra(PAYLOAD_LABEL)) {
             cordova.getActivity().moveTaskToBack(true);
         }
+        context = cordova.getActivity().getApplicationContext();
     }
 
     @Override
@@ -65,7 +68,6 @@ public class ChromeGcm extends CordovaPlugin {
         return false;
     }
     static private void startApp(){
-        Context context = Context.getApplicationContext();
         try {
                 String activityClass = context.getPackageManager().getPackageInfo(context.getPackageName(), PackageManager.GET_ACTIVITIES).activities[0].name;
                 Intent activityIntent = Intent.makeMainActivity(new ComponentName(context, activityClass));
@@ -112,12 +114,12 @@ public class ChromeGcm extends CordovaPlugin {
         webView.sendJavascript("chrome.gcm.onMessage.fire({payload:'" + payload + "'})");
     }
 
-    static private void fireOnMessagesDeleted() {
-        webView.sendJavascript("chrome.gcm.onMessagesDeleted.fire()");
+    static private void fireOnMessagesDeleted(String payload) {
+        webView.sendJavascript("chrome.gcm.onMessagesDeleted.fire({payload:'" + payload + "'})");
     }
 
-    static private void fireOnSendError(String msg, String msgid, String msgdetails) {
-        webView.sendJavascript("chrome.gcm.onSendError.fire({errorMessage:'"+msg+"', messageId:'" + msgid+"', details:'"+msgdetails+ "'})");
+    static private void fireOnSendError(String payload) {
+        webView.sendJavascript("chrome.gcm.onSendError.fire({payload:'" + payload + "'})");
     }
 
     private void fireQueuedMessages(final CordovaArgs args, final CallbackContext callbackContext) {
@@ -141,11 +143,12 @@ public class ChromeGcm extends CordovaPlugin {
             @Override
             public void run() {
                 try {
+                    String sender = args.getString(0);
                     Bundle data = new Bundle();
                     data.putString("my_message", "Hello World");
                     data.putString("my_action", "com.google.android.gcm.demo.app.ECHO_NOW");
                     String id = Integer.toString(msgId.incrementAndGet());
-                    gcm.send(SENDER_ID + "@gcm.googleapis.com", id, data);
+                    gcm.send(sender + "@gcm.googleapis.com", id, data);
                     callbackContext.success(id);
                 } catch (Exception e) {
                     Log.e(LOG_TAG, "Error sending message", e);
