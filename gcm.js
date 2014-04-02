@@ -15,53 +15,48 @@ var _registrationId;
 exports.MAX_MESSAGE_SIZE = 4096;
 
 exports.send = function(message, callback){
-
+  var win = function(msg) {
+    callback(msg);
+  }
+  var fail = function(msg) {
+    console.log('Send failed: '+msg);
+    callback(msg);
+  }
+  getSenderID(function(sid) {
+    console.log('sending to '+sid);
+    exec(win, fail, 'ChromeGcm', 'send',  sid  );
+  });
 }
 
-// need to store the sender ids in localstorage and
+exports.clearCache = function(callback) {
+  getSenderID(function(sid) {
+    console.log('Clearing registration for '+sid);
+    setRegistrationID('',sid);
+    callback();
+  });
+}
+
+// Senderid and registration should be cached in localstorage. 
+// If its not there, then registration is required
 exports.register = function(senderid, callback) {
-  var outstandingCallbacks = 2;
-  var result = {};
   setSenderID(senderid);
 
-  checkToIssueCallback = function() {
-    outstandingCallbacks--;
-    if (outstandingCallbacks == 0) {
-      callback(result);
-    }
-  }
-  
-  chrome.identity.getAuthToken({interactive:true}, function(token) {
-    var channelApiUrl = 'https://www.googleapis.com/gcm_for_chrome/v1/channels/id';
-    var req = new XMLHttpRequest();
-    req.onreadystatechange = function() {
-      if (req.readyState == 4) {
-        if (req.status == 200) {
-          var response = JSON.parse(req.responseText);
-          result['channelId'] = response.id + '/' + chrome.runtime.id;
-        } else {
-          console.error('Error sending channel ID request, server returned with status ' + req.status);
-        }
-        checkToIssueCallback();
-      }
-    }
-    req.open('GET', channelApiUrl + '?access_token=' + token, true);
-    req.send(null);
-  });
-
   var win = function(registrationId) {
-    if(require('cordova/platform').id == "android"){
-      result['registrationId'] = registrationId;
-      setRegistrationID(registrationid, senderid);
-    }
-    checkToIssueCallback();
+    setRegistrationID(registrationId, senderid);
+    callback(registrationId);
   }
+  var fail = function(msg) {
+    console.log('Registration failed: '+msg);
+    callback(null);
+  }
+  console.log('starting registration check');
   checkRegistrationID(function(regid) {
     if(!regid) {
-       exec(win, checkToIssueCallback, 'ChromeGcm', 'getRegistrationId', [ senderid ]);
+       console.log('Registering');
+       exec(win, fail, 'ChromeGcm', 'getRegistrationId',  senderid );
     } else {
-      result['registrationId'] = regid;
-      checkToIssueCallback();
+      console.log('Using cached  registrationId:' +regid);
+      callback(regid);
     }
   });
 }
@@ -88,8 +83,9 @@ function getSenderID(callback) {
             callback(null);
          }
       });
+   } else {
+     callback(_senderId);
    }
-   callback(_senderId);
 }
 
 function computeRegidKey(regid, senderid) {
@@ -113,8 +109,9 @@ function getRegistrationID(senderid, callback) {
             callback(null);
          }
       });
+   } else {
+     callback(_registrationId);
    }
-   callback(_registrationId);
 }
 function checkRegistrationID(callback) {
     getSenderID(function(sid){
@@ -125,7 +122,8 @@ function checkRegistrationID(callback) {
 }
 
 function fireQueuedMessages() {
-    exec(undefined, undefined, 'ChromeGcm', 'fireQueuedMessages', []);
+   console.log('firing queued messages');
+   exec(undefined, undefined, 'ChromeGcm', 'fireQueuedMessages', []);
 }
 
 require('org.chromium.common.helpers').runAtStartUp(fireQueuedMessages);

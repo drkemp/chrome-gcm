@@ -58,7 +58,7 @@ public class ChromeGcm extends CordovaPlugin {
         if ("fireQueuedMessages".equals(action)) {
             fireQueuedMessages(args, callbackContext);
             return true;
-        } else if ("register".equals(action)) {
+        } else if ("getRegistrationId".equals(action)) {
             getRegistrationId(args, callbackContext);
             return true;
         } else if ("send".equals(action)) {
@@ -111,15 +111,17 @@ public class ChromeGcm extends CordovaPlugin {
     }
     
     static private void fireOnMessage(String payload) {
-        webView.sendJavascript("chrome.gcm.onMessage.fire({payload:'" + payload + "'})");
+        webView.sendJavascript("chrome.gcm.onMessage.fire({data:" + payload + "})");
     }
 
     static private void fireOnMessagesDeleted(String payload) {
-        webView.sendJavascript("chrome.gcm.onMessagesDeleted.fire({payload:'" + payload + "'})");
+        webView.sendJavascript("chrome.gcm.onMessagesDeleted.fire()");
     }
 
     static private void fireOnSendError(String payload) {
-        webView.sendJavascript("chrome.gcm.onSendError.fire({payload:'" + payload + "'})");
+        String mid="1";
+        String mtext=payload;
+        webView.sendJavascript("chrome.gcm.onSendError.fire({messageId:'" + mid+ "', errorMessage:'" +mtext + "'})");
     }
 
     private void fireQueuedMessages(final CordovaArgs args, final CallbackContext callbackContext) {
@@ -143,6 +145,9 @@ public class ChromeGcm extends CordovaPlugin {
             @Override
             public void run() {
                 try {
+                    if(gcm == null) {
+                        gcm = GoogleCloudMessaging.getInstance(cordova.getActivity());
+                    }
                     String sender = args.getString(0);
                     Bundle data = new Bundle();
                     data.putString("my_message", "Hello World");
@@ -164,10 +169,18 @@ public class ChromeGcm extends CordovaPlugin {
             public void run() {
                 try {
                     if(gcm == null) {
+                        Log.e(LOG_TAG, "Creating gcm instance");
                         gcm = GoogleCloudMessaging.getInstance(cordova.getActivity());
                     }
-                    String regid = gcm.register(args.getString(0));
-                    callbackContext.success(regid);
+                    if(gcm != null) {
+                        String sid = args.getString(0);
+                        Log.e(LOG_TAG, "Registering sender ID: "+sid);
+                        String regid = gcm.register(sid);
+                        callbackContext.success(regid);
+                    } else {
+                        Log.e(LOG_TAG, "Could not create gcm instance");
+                        callbackContext.error("Could not create GCM instance");
+                    }
                 } catch (Exception e) {
                     Log.e(LOG_TAG, "Could not get registration ID", e);
                     callbackContext.error("Could not get registration ID");
