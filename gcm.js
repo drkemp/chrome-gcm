@@ -21,7 +21,11 @@ exports.send = function(message, callback){
     callback(msg);
   }  
   var dest = message.destinationId;
-  chrome.runtime.lastError=null;
+  chrome.runtime.lastError=undefined;
+  var n = JSON.stringify(message).length;
+  if(n>4096) {
+     throw(new Error("Payload exceeded allowed size limit. Payload size is: "+n));
+  }
   console.log('sending to '+dest);
   exec(win, fail, 'ChromeGcm', 'send',  [dest,message]  );
 }
@@ -38,9 +42,9 @@ exports.unregister = function(callback) {
     callback();
   }
   getRegistrationID(function(regid) {
-    chrome.runtime.lastError=null;
+    chrome.runtime.lastError=undefined;
     if(regid) {
-      exec(unregok, unregfail, 'ChromeGcm', 'unregister','' );
+      exec(unregok, unregfail, 'ChromeGcm', 'unregister',[''] );
     } else {
       console.log('Not registered - skipping de-register');
     }
@@ -59,7 +63,10 @@ exports.register = function(senderid, callback) {
     console.log('Registration failed: '+msg);
     callback(null);
   }
-  chrome.runtime.lastError=null;
+  chrome.runtime.lastError=undefined;
+  if(senderid[0].length == 0) {
+    throw(new Error("Invalid value for argument 1. Property '.0': String must be at least 1 characters long."));
+  }
   console.log('starting registration check');
   getRegistrationID(function(regid) {
     if(!regid) {
