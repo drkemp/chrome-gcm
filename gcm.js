@@ -3,13 +3,11 @@
 // found in the LICENSE file.
 
 var GCM_STORAGE_PREFIX = 'gcm-';
-var GCM_SIDKEY = GCM_STORAGE_PREFIX+'SenderID';
-var GCM_REGKEY_PREFIX = GCM_STORAGE_PREFIX+'RegID';
+var GCM_REGKEY = GCM_STORAGE_PREFIX+'RegID';
 
 var Event = require('org.chromium.common.events');
 var exec = require('cordova/exec');
 var channel = require('cordova/channel');
-var _senderId;
 var _registrationId;
 
 exports.MAX_MESSAGE_SIZE = 4096;
@@ -21,36 +19,49 @@ exports.send = function(message, callback){
   var fail = function(msg) {
     console.log('Send failed: '+msg);
     callback(msg);
-  }
-  getSenderID(function(sid) {
-    console.log('sending to '+sid);
-    exec(win, fail, 'ChromeGcm', 'send',  sid  );
-  });
+  }  
+  var dest = message.destinationId;
+  chrome.runtime.lastError=null;
+  console.log('sending to '+dest);
+  exec(win, fail, 'ChromeGcm', 'send',  [dest,message]  );
 }
 
-exports.clearCache = function(callback) {
-  getSenderID(function(sid) {
-    console.log('Clearing registration for '+sid);
-    setRegistrationID('',sid);
+exports.unregister = function(callback) {
+
+  var unregok = function() {
+    console.log('Cleared registration ');
+    setRegistrationID('');
     callback();
+  }
+  var unregfail = function() {
+    chrome.runtime.lastError='Unregistration Failed';
+    callback();
+  }
+  getRegistrationID(function(regid) {
+    chrome.runtime.lastError=null;
+    if(regid) {
+      exec(unregok, unregfail, 'ChromeGcm', 'unregister','' );
+    } else {
+      console.log('Not registered - skipping de-register');
+    }
   });
 }
 
-// Senderid and registration should be cached in localstorage. 
+// registration should be cached in localstorage. 
 // If its not there, then registration is required
 exports.register = function(senderid, callback) {
-  setSenderID(senderid);
 
   var win = function(registrationId) {
-    setRegistrationID(registrationId, senderid);
+    setRegistrationID(registrationId);
     callback(registrationId);
   }
   var fail = function(msg) {
     console.log('Registration failed: '+msg);
     callback(null);
   }
+  chrome.runtime.lastError=null;
   console.log('starting registration check');
-  checkRegistrationID(function(regid) {
+  getRegistrationID(function(regid) {
     if(!regid) {
        console.log('Registering');
        exec(win, fail, 'ChromeGcm', 'getRegistrationId',  senderid );
@@ -66,44 +77,19 @@ exports.onMessage = new Event('onMessage');
 exports.onMessagesDeleted = new Event('onMessagesDeleted');
 exports.onSendError = new Event('onSendError');
 
-function setSenderID(senderid) {
-  var sidObject ={};
-  sidObject[GCM_SIDKEY]=senderid;
-  chrome.storage.internal.set(sidObject);
-  _senderId = senderid;
-}
 
-function getSenderID(callback) {
-   if(!_senderId) {
-      chrome.storage.internal.get(GCM_SIDKEY, function(items){
-         if(items[GCM_SIDKEY]) {
-            _senderId=items[GCM_SIDKEY];
-            callback(_senderId);
-         } else {
-            callback(null);
-         }
-      });
-   } else {
-     callback(_senderId);
-   }
-}
-
-function computeRegidKey(regid, senderid) {
-   return GCM_REGKEY_PREFIX+senderid;
-}
-
-function setRegistrationID(regid,senderid) {
+function setRegistrationID(regid) {
   var regidObject ={};
-  regidObject[computeRegidKey(regid,senderid)]=regid;
+  regidObject[GCM_REGKEY]=regid;
   chrome.storage.internal.set(regidObject);
   _registrationId = regid;
 }
-function getRegistrationID(senderid, callback) {
+
+function getRegistrationID(callback) {
    if(!_registrationId) {
-      var regKey = computeRegidKey(senderid);
-      chrome.storage.internal.get(regKey,function(items){
-         if(items[regKey]) {
-            _registrationId=items[regKey];
+      chrome.storage.internal.get(GCM_REGKEY,function(items){
+         if(items[GCM_REGKEY]) {
+            _registrationId=items[GCM_REGKEY];
             callback(_registrationId);
          } else {
             callback(null);
@@ -112,13 +98,6 @@ function getRegistrationID(senderid, callback) {
    } else {
      callback(_registrationId);
    }
-}
-function checkRegistrationID(callback) {
-    getSenderID(function(sid){
-       getRegistrationID(sid, function(regid){
-          callback(regid);
-       });
-    });
 }
 
 function fireQueuedMessages() {

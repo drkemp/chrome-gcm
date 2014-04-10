@@ -23,7 +23,13 @@ public class GcmIntentService extends IntentService {
         JSONObject payload = new JSONObject();
         try {
             for (String key : intent.getExtras().keySet()) {
-                payload.put(key, intent.getStringExtra(key));
+            	if(!(
+                  key.startsWith("google") ||
+                  key.equals("android.support.content.wakelockid") ||
+                  key.equals("collapse_key") ||
+                  key.equals("from"))){
+                     payload.put(key, intent.getStringExtra(key));
+                }
             }
         } catch (Exception e) {
             Log.e(LOG_TAG, "Error parsing GCM payload: " + e);
@@ -40,6 +46,8 @@ public class GcmIntentService extends IntentService {
             ChromeGcm.handleDeletedMessages( payloadString);
         } else if (GoogleCloudMessaging.MESSAGE_TYPE_MESSAGE.equals(messageType)) {
             ChromeGcm.handleRxMessage( payloadString);
+        } else {
+//        	Log.w(LOG_TAG, "got msgtype: "+messageType);
         }
         GcmReceiver.completeWakefulIntent(intent);
     }

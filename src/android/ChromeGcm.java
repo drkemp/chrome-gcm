@@ -64,6 +64,9 @@ public class ChromeGcm extends CordovaPlugin {
         } else if ("send".equals(action)) {
             sendMessage(args, callbackContext);
             return true;
+        } else if ("unregister".equals(action)) {
+            unregister(args, callbackContext);
+            return true;
         }
         return false;
     }
@@ -140,6 +143,24 @@ public class ChromeGcm extends CordovaPlugin {
         pendingSendErrors.clear();
     }
 
+    private void unregister(final CordovaArgs args, final CallbackContext callbackContext) {
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    if(gcm == null) {
+                        gcm = GoogleCloudMessaging.getInstance(cordova.getActivity());
+                    }
+                    gcm.unregister();
+                    callbackContext.success();
+                } catch (Exception e) {
+                    Log.e(LOG_TAG, "Error during unregister", e);
+                    callbackContext.error("Error during unregister");
+                }
+            }
+        });
+    }
+
     private void sendMessage(final CordovaArgs args, final CallbackContext callbackContext) {
         executorService.execute(new Runnable() {
             @Override
@@ -148,12 +169,12 @@ public class ChromeGcm extends CordovaPlugin {
                     if(gcm == null) {
                         gcm = GoogleCloudMessaging.getInstance(cordova.getActivity());
                     }
-                    String sender = args.getString(0);
+                    String destination = args.getString(0);
+                    String msg = args.getString(1);
                     Bundle data = new Bundle();
-                    data.putString("my_message", "Hello World");
-                    data.putString("my_action", "com.google.android.gcm.demo.app.ECHO_NOW");
+                    data.putString(PAYLOAD_LABEL, msg);
                     String id = Integer.toString(msgId.incrementAndGet());
-                    gcm.send(sender + "@gcm.googleapis.com", id, data);
+                    gcm.send(destination, id, data);
                     callbackContext.success(id);
                 } catch (Exception e) {
                     Log.e(LOG_TAG, "Error sending message", e);
