@@ -4,7 +4,13 @@ This plugin allows Android apps to send/receive push messages.
 
 ## Status
 
-Supported on Android
+Supported on Android; not supported on iOS.
+
+## Caveats
+
+### Android
+
+To avoid a brief black window opening when events are receved,  you have to manually change the theme to translucent in `platforms/android/AndroidManifest.xml` by changing `"Theme.Black.NoTitleBar"` to `"Theme.Translucent"` inside your `<activity>` tag.
 
 ## Reference
 
